@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { StudioModals } from './StudioModals';
 
 /* ════════════════════════════════════════════════
    TYPES & DATA
@@ -125,7 +126,7 @@ function RenderContent({ content }: { content: string }) {
     <>
       {content.split('\n').map((line, i) => {
         if (line.startsWith('**') && line.endsWith('**')) {
-          return <h3 key={i} className="text-sm font-semibold mt-5 mb-2" style={{ color: 'var(--color-surface-100)' }}>{line.replace(/\*\*/g, '')}</h3>;
+          return <h3 key={i} className="text-sm font-semibold mt-5 mb-2 animate-fade-in" style={{ color: 'var(--color-surface-100)' }}>{line.replace(/\*\*/g, '')}</h3>;
         }
         if (line.startsWith('> ')) {
           return <blockquote key={i} className="border-l-2 pl-4 my-4 italic text-sm" style={{ borderColor: 'var(--color-accent-primary)', color: 'var(--color-surface-300)' }}>{line.replace('> ', '')}</blockquote>;
@@ -166,7 +167,15 @@ function timeAgo(date: Date): string {
    STUDIO OUTPUTS LIST (shared component)
    ════════════════════════════════════════════════ */
 
-function StudioOutputsList({ outputs, compact = false }: { outputs: StudioOutput[]; compact?: boolean }) {
+function StudioOutputsList({
+  outputs,
+  onOutputClick,
+  compact = false
+}: {
+  outputs: StudioOutput[];
+  onOutputClick?: (output: StudioOutput) => void;
+  compact?: boolean;
+}) {
   if (outputs.length === 0) {
     return (
       <div className="text-center py-8">
@@ -182,28 +191,35 @@ function StudioOutputsList({ outputs, compact = false }: { outputs: StudioOutput
       {outputs.map((output) => (
         <button
           key={output.id}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors w-full"
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-glass-hover)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          disabled={output.status === 'generating'}
+          onClick={() => onOutputClick && onOutputClick(output)}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all w-full group ${output.status === 'generating' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-[var(--color-glass-hover)]'}`}
         >
-          <span className={compact ? 'text-sm' : 'text-lg'}>{studioTypeIcon(output.type)}</span>
+          <span className={compact ? 'text-sm' : 'text-lg group-hover:scale-110 transition-transform'}>
+            {studioTypeIcon(output.type)}
+          </span>
           <div className="flex-1 min-w-0">
             <span className={`block truncate font-medium ${compact ? 'text-[12px]' : 'text-[13px]'}`}
               style={{ color: 'var(--color-surface-200)' }}>
               {output.title}
             </span>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] font-mono capitalize" style={{ color: 'var(--color-surface-500)' }}>
+              <span className="text-[10px] font-mono capitalize text-slate-500">
                 {output.type}
               </span>
               <span style={{ color: 'var(--color-surface-600)' }}>·</span>
-              <span className="text-[10px] font-mono" style={{ color: 'var(--color-surface-500)' }}>
+              <span className="text-[10px] font-mono text-slate-500">
                 {timeAgo(output.createdAt)}
               </span>
             </div>
           </div>
-          {output.status === 'generating' && (
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--color-accent-primary)' }} />
+          {output.status === 'generating' ? (
+            <div className="w-3.5 h-3.5 rounded-full border-2 border-t-transparent animate-spin"
+              style={{ borderColor: 'var(--color-accent-primary) var(--color-accent-primary) transparent transparent' }} />
+          ) : (
+            <span className="text-[10px] font-semibold text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+              Open <span>➔</span>
+            </span>
           )}
         </button>
       ))}
@@ -215,9 +231,18 @@ function StudioOutputsList({ outputs, compact = false }: { outputs: StudioOutput
    TAB: OVERVIEW
    ════════════════════════════════════════════════ */
 
-function OverviewTab({ book, studioOutputs }: {
+function OverviewTab({
+  book,
+  studioOutputs,
+  sourcesCount,
+  chaptersCount,
+  onOutputClick
+}: {
   book: BookDetailViewProps['book'];
   studioOutputs: StudioOutput[];
+  sourcesCount: number;
+  chaptersCount: number;
+  onOutputClick: (output: StudioOutput) => void;
 }) {
   return (
     <div className="flex-1 overflow-y-auto p-6 md:p-10 view-enter">
@@ -239,7 +264,7 @@ function OverviewTab({ book, studioOutputs }: {
                   {book.subject}
                 </span>
                 <span className="text-[11px] font-mono" style={{ color: 'var(--color-surface-500)' }}>
-                  {book.pages} pages • {SAMPLE_SOURCES.length} sources • {SAMPLE_PAGES.length} chapters
+                  {book.pages} pages • {sourcesCount} sources • {chaptersCount} chapters
                 </span>
               </div>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--color-surface-300)' }}>
@@ -255,11 +280,11 @@ function OverviewTab({ book, studioOutputs }: {
         <div className="grid grid-cols-4 gap-3 mb-6">
           {[
             { label: 'Pages', value: book.pages.toString(), icon: '📑' },
-            { label: 'Chapters', value: SAMPLE_PAGES.length.toString(), icon: '📚' },
-            { label: 'Sources', value: SAMPLE_SOURCES.length.toString(), icon: '🔗' },
+            { label: 'Chapters', value: chaptersCount.toString(), icon: '📚' },
+            { label: 'Sources', value: sourcesCount.toString(), icon: '🔗' },
             { label: 'Creations', value: studioOutputs.length.toString(), icon: '✦' },
           ].map((stat) => (
-            <div key={stat.label} className="glass-card p-4 text-center">
+            <div key={stat.label} className="glass-card p-4 text-center hover:scale-[1.02] transition-transform duration-200">
               <span className="text-lg block mb-1">{stat.icon}</span>
               <span className="text-lg font-bold block" style={{ color: 'var(--color-surface-50)' }}>{stat.value}</span>
               <span className="text-[11px]" style={{ color: 'var(--color-surface-500)' }}>{stat.label}</span>
@@ -277,7 +302,7 @@ function OverviewTab({ book, studioOutputs }: {
               {studioOutputs.length} items
             </span>
           </div>
-          <StudioOutputsList outputs={studioOutputs} />
+          <StudioOutputsList outputs={studioOutputs} onOutputClick={onOutputClick} />
         </div>
       </div>
     </div>
@@ -288,16 +313,31 @@ function OverviewTab({ book, studioOutputs }: {
    TAB: PAGES (3-column layout)
    ════════════════════════════════════════════════ */
 
-function PagesTab({ notes, setNotes }: {
+function PagesTab({
+  notes,
+  setNotes,
+  sources,
+  pages
+}: {
   notes: Note[];
   setNotes: React.Dispatch<React.SetStateAction<Note[]>>;
+  sources: Source[];
+  pages: typeof SAMPLE_PAGES;
 }) {
   const [selectedPageIdx, setSelectedPageIdx] = useState(0);
-  const currentPage = SAMPLE_PAGES[selectedPageIdx];
-  const pageSources = SAMPLE_SOURCES.filter(s => currentPage.sourceIds.includes(s.id));
-  const pageNotes = notes.filter(n => n.pageId === currentPage.id);
+  const currentPage = pages[selectedPageIdx] || pages[0];
+  const pageSources = sources.filter(s => currentPage?.sourceIds?.includes(s.id));
+  const pageNotes = notes.filter(n => n.pageId === currentPage?.id);
+
+  // Column Order Drag & Drop State
+  const [columnOrder, setColumnOrder] = useState<('sources' | 'content' | 'notes')[]>(['sources', 'content', 'notes']);
+  const [draggedCol, setDraggedCol] = useState<'sources' | 'content' | 'notes' | null>(null);
+
+  // Mobile Sub-Tab view state
+  const [mobileSubTab, setMobileSubTab] = useState<'sources' | 'content' | 'notes'>('content');
 
   const handleMouseUp = useCallback(() => {
+    if (!currentPage) return;
     const selection = window.getSelection();
     const selectedText = selection?.toString().trim();
     if (selectedText && selectedText.length > 3) {
@@ -309,17 +349,169 @@ function PagesTab({ notes, setNotes }: {
       }]);
       selection?.removeAllRanges();
     }
-  }, [currentPage.id, setNotes]);
+  }, [currentPage, setNotes]);
+
+  // Drag & drop handlers
+  const handleDragStart = (e: React.DragEvent, id: 'sources' | 'content' | 'notes') => {
+    e.dataTransfer.setData('text/plain', id);
+    setDraggedCol(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: 'sources' | 'content' | 'notes') => {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('text/plain') as 'sources' | 'content' | 'notes';
+    if (sourceId && sourceId !== targetId) {
+      const newOrder = [...columnOrder];
+      const sourceIdx = newOrder.indexOf(sourceId);
+      const targetIdx = newOrder.indexOf(targetId);
+      newOrder[sourceIdx] = targetId;
+      newOrder[targetIdx] = sourceId;
+      setColumnOrder(newOrder);
+    }
+    setDraggedCol(null);
+  };
+
+  if (!currentPage) {
+    return <div className="p-8 text-center text-slate-500">No pages found in this book.</div>;
+  }
+
+  // Column Renderer Helper
+  const renderColumn = (colId: 'sources' | 'content' | 'notes', isMobile = false) => {
+    if (colId === 'sources') {
+      return (
+        <div
+          key="sources"
+          draggable={!isMobile}
+          onDragStart={(e) => handleDragStart(e, 'sources')}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, 'sources')}
+          className={`flex-1 overflow-y-auto p-4 transition-all duration-200 ${draggedCol === 'sources' ? 'opacity-40 scale-95 border-dashed border-2 border-indigo-500/40' : ''} ${isMobile ? '' : 'w-[240px] xl:w-[280px] shrink-0 border-r'}`}
+          style={{
+            borderColor: isMobile ? 'transparent' : 'var(--color-glass-border)',
+            background: isMobile ? 'transparent' : 'var(--color-surface-900)'
+          }}
+        >
+          <div className={`flex items-center justify-between mb-3 select-none ${isMobile ? '' : 'cursor-grab active:cursor-grabbing border-b pb-1.5 border-slate-800'}`}>
+            <h4 className="text-[10px] font-semibold uppercase tracking-widest"
+              style={{ color: 'var(--color-surface-500)' }}>
+              Sources ({pageSources.length})
+            </h4>
+            {!isMobile && <span className="text-[10px] text-slate-600">☰</span>}
+          </div>
+          {pageSources.length === 0 ? (
+            <p className="text-[12px]" style={{ color: 'var(--color-surface-500)' }}>No sources for this page.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {pageSources.map((source) => (
+                <div key={source.id} className="p-3 rounded-lg transition-all border hover:border-slate-700 bg-[var(--color-surface-850)] border-[var(--color-glass-border)]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs">{source.favicon}</span>
+                    <span className="text-[10px] font-mono truncate" style={{ color: 'var(--color-accent-primary)' }}>
+                      {source.domain}
+                    </span>
+                  </div>
+                  <span className="block text-[12px] font-medium leading-snug mb-1"
+                    style={{ color: 'var(--color-surface-200)' }}>
+                    {source.title}
+                  </span>
+                  <p className="text-[11px] leading-snug line-clamp-2 text-slate-400">
+                    {source.snippet}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (colId === 'content') {
+      return (
+        <div
+          key="content"
+          draggable={!isMobile}
+          onDragStart={(e) => handleDragStart(e, 'content')}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, 'content')}
+          className={`flex-1 overflow-y-auto px-4 md:px-10 py-6 transition-all duration-200 ${draggedCol === 'content' ? 'opacity-40 scale-95 border-dashed border-2 border-indigo-500/40' : ''}`}
+          onMouseUp={handleMouseUp}
+        >
+          <div className="max-w-2xl mx-auto">
+            <div className={`flex items-center justify-between mb-4 select-none ${isMobile ? '' : 'cursor-grab active:cursor-grabbing border-b pb-1 border-slate-800'}`}>
+              <h2 className="text-lg font-serif font-bold text-[var(--color-surface-50)]">
+                {currentPage.title}
+              </h2>
+              {!isMobile && <span className="text-[10px] text-slate-600">☰</span>}
+            </div>
+            <RenderContent content={currentPage.content} />
+            <p className="mt-8 text-[11px] italic text-slate-500">
+              💡 Highlight any text to save it as a note on the right.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (colId === 'notes') {
+      return (
+        <div
+          key="notes"
+          draggable={!isMobile}
+          onDragStart={(e) => handleDragStart(e, 'notes')}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, 'notes')}
+          className={`flex-1 overflow-y-auto p-4 transition-all duration-200 ${draggedCol === 'notes' ? 'opacity-40 scale-95 border-dashed border-2 border-indigo-500/40' : ''} ${isMobile ? '' : 'w-[240px] xl:w-[280px] shrink-0 border-l'}`}
+          style={{
+            borderColor: isMobile ? 'transparent' : 'var(--color-glass-border)',
+            background: isMobile ? 'transparent' : 'var(--color-surface-900)'
+          }}
+        >
+          <div className={`flex items-center justify-between mb-3 select-none ${isMobile ? '' : 'cursor-grab active:cursor-grabbing border-b pb-1.5 border-slate-800'}`}>
+            <h4 className="text-[10px] font-semibold uppercase tracking-widest font-mono"
+              style={{ color: 'var(--color-surface-500)' }}>
+              Notes ({pageNotes.length})
+            </h4>
+            {!isMobile && <span className="text-[10px] text-slate-600">☰</span>}
+          </div>
+          {pageNotes.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-2xl mb-2 animate-bounce">📌</div>
+              <p className="text-[12px] text-slate-500">
+                Highlight text in the reader panel to pin notes here.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {pageNotes.map((note) => (
+                <div key={note.id} className="highlight-note border border-slate-800 bg-slate-900/40 hover:bg-slate-900/80 transition-colors">
+                  <span className="text-[12px] font-serif leading-relaxed text-slate-200">"{note.text}"</span>
+                  <div className="mt-1.5 text-[9px] font-mono text-slate-500 text-right">
+                    {note.timestamp.toLocaleTimeString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden view-enter">
+    <div className="flex-1 flex flex-col overflow-hidden view-enter animate-fade-in">
       {/* Page selector tabs */}
       <div className="shrink-0 flex gap-1 px-4 pt-2 overflow-x-auto"
         style={{ borderBottom: '1px solid var(--color-glass-border)' }}>
-        {SAMPLE_PAGES.map((page, idx) => (
+        {pages.map((page, idx) => (
           <button
             key={page.id}
-            className="px-4 py-2.5 text-[12px] font-medium whitespace-nowrap transition-colors"
+            className="px-4 py-2.5 text-[12px] font-medium whitespace-nowrap transition-colors cursor-pointer"
             style={{
               color: selectedPageIdx === idx ? 'var(--color-accent-primary)' : 'var(--color-surface-400)',
               borderBottom: selectedPageIdx === idx ? '2px solid var(--color-accent-primary)' : '2px solid transparent',
@@ -331,81 +523,33 @@ function PagesTab({ notes, setNotes }: {
         ))}
       </div>
 
-      {/* 3-column layout: Sources | Content | Notes */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* LEFT: Sources for this page */}
-        <div className="w-[240px] xl:w-[280px] shrink-0 overflow-y-auto border-r p-4"
-          style={{ borderColor: 'var(--color-glass-border)', background: 'var(--color-surface-900)' }}>
-          <h4 className="text-[10px] font-semibold uppercase tracking-widest mb-3"
-            style={{ color: 'var(--color-surface-500)' }}>
-            Sources ({pageSources.length})
-          </h4>
-          {pageSources.length === 0 ? (
-            <p className="text-[12px]" style={{ color: 'var(--color-surface-500)' }}>No sources for this page.</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {pageSources.map((source) => (
-                <div key={source.id} className="p-3 rounded-lg transition-colors"
-                  style={{ background: 'var(--color-surface-850)', border: '1px solid var(--color-glass-border)' }}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs">{source.favicon}</span>
-                    <span className="text-[10px] font-mono truncate" style={{ color: 'var(--color-accent-primary)' }}>
-                      {source.domain}
-                    </span>
-                  </div>
-                  <span className="block text-[12px] font-medium leading-snug mb-1"
-                    style={{ color: 'var(--color-surface-200)' }}>
-                    {source.title}
-                  </span>
-                  <p className="text-[11px] leading-snug line-clamp-2"
-                    style={{ color: 'var(--color-surface-500)' }}>
-                    {source.snippet}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Responsive Columns Wrapper */}
+      {/* DESKTOP LAYOUT (>=768px): 3-column drag-and-drop */}
+      <div className="hidden md:flex flex-1 overflow-hidden">
+        {columnOrder.map((colId) => renderColumn(colId, false))}
+      </div>
 
-        {/* MIDDLE: Page content */}
-        <div className="flex-1 overflow-y-auto px-6 md:px-10 py-6" onMouseUp={handleMouseUp}>
-          <div className="max-w-2xl mx-auto">
-            <h2 className="text-lg font-serif font-bold mb-4" style={{ color: 'var(--color-surface-50)' }}>
-              {currentPage.title}
-            </h2>
-            <RenderContent content={currentPage.content} />
-            <p className="mt-8 text-[11px] italic" style={{ color: 'var(--color-surface-500)' }}>
-              💡 Highlight any text to save it as a note on the right.
-            </p>
-          </div>
+      {/* MOBILE LAYOUT (<768px): Sub-tabs */}
+      <div className="flex md:hidden flex-1 flex-col overflow-hidden">
+        <div className="flex border-b shrink-0 bg-[var(--color-surface-900)] border-[var(--color-glass-border)]">
+          {(['sources', 'content', 'notes'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setMobileSubTab(tab)}
+              className="flex-1 py-3 text-center text-[10px] font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+              style={{
+                color: mobileSubTab === tab ? 'var(--color-accent-primary)' : 'var(--color-surface-400)',
+                borderBottom: mobileSubTab === tab ? '2.5px solid var(--color-accent-primary)' : '2.5px solid transparent'
+              }}
+            >
+              {tab === 'sources' && '🔗 Sources'}
+              {tab === 'content' && '📄 Read'}
+              {tab === 'notes' && '📌 Notes'}
+            </button>
+          ))}
         </div>
-
-        {/* RIGHT: Notes */}
-        <div className="w-[240px] xl:w-[280px] shrink-0 overflow-y-auto border-l p-4"
-          style={{ borderColor: 'var(--color-glass-border)', background: 'var(--color-surface-900)' }}>
-          <h4 className="text-[10px] font-semibold uppercase tracking-widest mb-3"
-            style={{ color: 'var(--color-surface-500)' }}>
-            Notes ({pageNotes.length})
-          </h4>
-          {pageNotes.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-2xl mb-2">📌</div>
-              <p className="text-[12px]" style={{ color: 'var(--color-surface-500)' }}>
-                Highlight text to pin notes here.
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {pageNotes.map((note) => (
-                <div key={note.id} className="highlight-note">
-                  <span className="text-[12px]">"{note.text}"</span>
-                  <div className="mt-1 text-[10px] font-mono" style={{ color: 'var(--color-surface-500)' }}>
-                    {note.timestamp.toLocaleTimeString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {renderColumn(mobileSubTab, true)}
         </div>
       </div>
     </div>
@@ -440,7 +584,7 @@ function BookTeacherTab({ book }: { book: BookDetailViewProps['book'] }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden view-enter">
+    <div className="flex-1 flex flex-col overflow-hidden view-enter animate-fade-in">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
         <div className="max-w-3xl mx-auto flex flex-col gap-4">
@@ -449,7 +593,7 @@ function BookTeacherTab({ book }: { book: BookDetailViewProps['book'] }) {
               <div className={msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}>
                 {msg.role === 'ai' && (
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow"
                       style={{ background: `linear-gradient(135deg, ${book.color1}, ${book.color2})` }}>
                       T
                     </div>
@@ -458,7 +602,7 @@ function BookTeacherTab({ book }: { book: BookDetailViewProps['book'] }) {
                     </span>
                   </div>
                 )}
-                <div className="whitespace-pre-wrap text-[14px] leading-relaxed"
+                <div className="whitespace-pre-wrap text-[14px] leading-relaxed select-text"
                   dangerouslySetInnerHTML={{
                     __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')
                   }} />
@@ -478,7 +622,7 @@ function BookTeacherTab({ book }: { book: BookDetailViewProps['book'] }) {
       </div>
 
       {/* Input */}
-      <div className="shrink-0 px-4 md:px-8 pb-5 pt-2">
+      <div className="shrink-0 px-4 md:px-8 pb-5 pt-2 bg-gradient-to-t from-[var(--color-surface-950)] to-transparent">
         <div className="max-w-3xl mx-auto">
           <div className="glass-card-strong flex items-end gap-3 p-3">
             <textarea
@@ -498,7 +642,7 @@ function BookTeacherTab({ book }: { book: BookDetailViewProps['book'] }) {
             <button
               onClick={handleSend}
               disabled={!input.trim()}
-              className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all"
+              className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer"
               style={{
                 background: input.trim() ? 'var(--color-accent-primary)' : 'var(--color-surface-700)',
                 color: input.trim() ? 'white' : 'var(--color-surface-500)',
@@ -520,29 +664,29 @@ function BookTeacherTab({ book }: { book: BookDetailViewProps['book'] }) {
    TAB: SOURCES (grouped by domain)
    ════════════════════════════════════════════════ */
 
-function SourcesTab() {
+function SourcesTab({ sources }: { sources: Source[] }) {
   const [groupByDomain, setGroupByDomain] = useState(true);
 
   // Group sources by domain
-  const grouped = SAMPLE_SOURCES.reduce<Record<string, Source[]>>((acc, src) => {
+  const grouped = sources.reduce<Record<string, Source[]>>((acc, src) => {
     if (!acc[src.domain]) acc[src.domain] = [];
     acc[src.domain].push(src);
     return acc;
   }, {});
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 md:p-10 view-enter">
+    <div className="flex-1 overflow-y-auto p-6 md:p-10 view-enter animate-fade-in">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-lg font-serif font-bold" style={{ color: 'var(--color-surface-50)' }}>Sources</h2>
-            <p className="text-[12px] mt-1" style={{ color: 'var(--color-surface-500)' }}>
-              {SAMPLE_SOURCES.length} sources from {Object.keys(grouped).length} websites
+            <h2 className="text-lg font-serif font-bold" style={{ color: 'var(--color-surface-55)' }}>Sources</h2>
+            <p className="text-[12px] mt-1 text-slate-500">
+              {sources.length} sources from {Object.keys(grouped).length} websites
             </p>
           </div>
           <button
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors cursor-pointer"
             style={{
               background: groupByDomain ? 'var(--color-accent-glow)' : 'var(--color-surface-800)',
               color: groupByDomain ? 'var(--color-accent-primary)' : 'var(--color-surface-400)',
@@ -560,33 +704,31 @@ function SourcesTab() {
 
         {groupByDomain ? (
           /* Grouped view */
-          <div className="flex flex-col gap-6">
-            {Object.entries(grouped).map(([domain, sources]) => (
+          <div className="flex flex-col gap-6 animate-fade-in">
+            {Object.entries(grouped).map(([domain, domainSources]) => (
               <div key={domain}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-sm">{sources[0].favicon}</span>
-                  <h3 className="text-[13px] font-semibold" style={{ color: 'var(--color-surface-200)' }}>
+                  <span className="text-sm">{domainSources[0].favicon}</span>
+                  <h3 className="text-[13px] font-semibold text-slate-200">
                     {domain}
                   </h3>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                    style={{ background: 'var(--color-surface-800)', color: 'var(--color-surface-500)' }}>
-                    {sources.length}
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-surface-800)] text-slate-400">
+                    {domainSources.length}
                   </span>
                 </div>
                 <div className="flex flex-col gap-2 ml-6">
-                  {sources.map((source) => (
-                    <div key={source.id} className="glass-card p-4 transition-all"
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(108,140,255,0.2)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}>
-                      <span className="block text-[13px] font-medium mb-1" style={{ color: 'var(--color-surface-200)' }}>
+                  {domainSources.map((source) => (
+                    <div key={source.id} className="glass-card p-4 transition-all border hover:border-slate-700">
+                      <span className="block text-[13px] font-medium mb-1 text-slate-200">
                         {source.title}
                       </span>
-                      <p className="text-[12px] leading-snug mb-2" style={{ color: 'var(--color-surface-500)' }}>
+                      <p className="text-[12px] leading-snug mb-2 text-slate-400">
                         {source.snippet}
                       </p>
-                      <span className="text-[10px] font-mono" style={{ color: 'var(--color-accent-primary)' }}>
+                      <a href={source.url} target="_blank" rel="noopener noreferrer"
+                        className="text-[10px] font-mono text-[var(--color-accent-primary)] hover:underline">
                         {source.url}
-                      </span>
+                      </a>
                     </div>
                   ))}
                 </div>
@@ -595,15 +737,19 @@ function SourcesTab() {
           </div>
         ) : (
           /* Flat list */
-          <div className="flex flex-col gap-2">
-            {SAMPLE_SOURCES.map((source) => (
-              <div key={source.id} className="glass-card p-4">
+          <div className="flex flex-col gap-2 animate-fade-in">
+            {sources.map((source) => (
+              <div key={source.id} className="glass-card p-4 hover:border-slate-700 transition-colors">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs">{source.favicon}</span>
-                  <span className="text-[10px] font-mono" style={{ color: 'var(--color-accent-primary)' }}>{source.domain}</span>
+                  <span className="text-[10px] font-mono text-[var(--color-accent-primary)]">{source.domain}</span>
                 </div>
-                <span className="block text-[13px] font-medium mb-1" style={{ color: 'var(--color-surface-200)' }}>{source.title}</span>
-                <p className="text-[12px]" style={{ color: 'var(--color-surface-500)' }}>{source.snippet}</p>
+                <span className="block text-[13px] font-medium mb-1 text-slate-200">{source.title}</span>
+                <p className="text-[12px] text-slate-400">{source.snippet}</p>
+                <a href={source.url} target="_blank" rel="noopener noreferrer"
+                  className="text-[10px] font-mono mt-2 block text-[var(--color-accent-primary)] hover:underline">
+                  {source.url}
+                </a>
               </div>
             ))}
           </div>
@@ -617,9 +763,16 @@ function SourcesTab() {
    TAB: STUDIO
    ════════════════════════════════════════════════ */
 
-function StudioTab({ studioOutputs, setStudioOutputs }: {
+function StudioTab({
+  studioOutputs,
+  setStudioOutputs,
+  onOutputClick,
+  onOpenSourceGatherer
+}: {
   studioOutputs: StudioOutput[];
   setStudioOutputs: React.Dispatch<React.SetStateAction<StudioOutput[]>>;
+  onOutputClick: (output: StudioOutput) => void;
+  onOpenSourceGatherer: () => void;
 }) {
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
 
@@ -633,6 +786,12 @@ function StudioTab({ studioOutputs, setStudioOutputs }: {
   ];
 
   const handleCreate = (toolId: string) => {
+    if (toolId === 'sources') {
+      onOpenSourceGatherer();
+      setSelectedTool(null);
+      return;
+    }
+
     const tool = tools.find(t => t.id === toolId);
     if (!tool) return;
     const newOutput: StudioOutput = {
@@ -654,12 +813,12 @@ function StudioTab({ studioOutputs, setStudioOutputs }: {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 md:p-10 view-enter">
+    <div className="flex-1 overflow-y-auto p-6 md:p-10 view-enter animate-fade-in">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h2 className="text-lg font-serif font-bold" style={{ color: 'var(--color-surface-50)' }}>Studio</h2>
-          <p className="text-[12px] mt-1" style={{ color: 'var(--color-surface-500)' }}>
+          <h2 className="text-lg font-serif font-bold text-[var(--color-surface-50)]">Studio</h2>
+          <p className="text-[12px] mt-1 text-slate-500">
             Choose what you want to create from your book's content and sources.
           </p>
         </div>
@@ -669,25 +828,19 @@ function StudioTab({ studioOutputs, setStudioOutputs }: {
           {tools.map((tool) => (
             <button
               key={tool.id}
-              className="glass-card p-5 text-left transition-all group"
+              className="glass-card p-5 text-left transition-all group cursor-pointer"
               style={{
                 borderColor: selectedTool === tool.id ? 'rgba(108,140,255,0.3)' : undefined,
                 background: selectedTool === tool.id ? 'var(--color-accent-glow)' : undefined,
               }}
               onClick={() => setSelectedTool(selectedTool === tool.id ? null : tool.id)}
-              onMouseEnter={(e) => {
-                if (selectedTool !== tool.id) e.currentTarget.style.borderColor = 'rgba(108,140,255,0.15)';
-              }}
-              onMouseLeave={(e) => {
-                if (selectedTool !== tool.id) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
-              }}
             >
-              <span className="text-2xl block mb-3">{tool.icon}</span>
+              <span className="text-2xl block mb-3 group-hover:scale-110 transition-transform">{tool.icon}</span>
               <span className="block text-sm font-medium mb-1"
                 style={{ color: selectedTool === tool.id ? 'var(--color-accent-primary)' : 'var(--color-surface-100)' }}>
                 {tool.label}
               </span>
-              <span className="block text-[11px] leading-snug" style={{ color: 'var(--color-surface-500)' }}>
+              <span className="block text-[11px] leading-snug text-slate-500">
                 {tool.desc}
               </span>
             </button>
@@ -701,22 +854,20 @@ function StudioTab({ studioOutputs, setStudioOutputs }: {
               <div className="flex items-center gap-3">
                 <span className="text-xl">{tools.find(t => t.id === selectedTool)?.icon}</span>
                 <div>
-                  <span className="block text-sm font-medium" style={{ color: 'var(--color-surface-100)' }}>
-                    Create {tools.find(t => t.id === selectedTool)?.label}
+                  <span className="block text-sm font-medium text-slate-200">
+                    {selectedTool === 'sources' ? 'Launch Source Gatherer Scanner' : `Create ${tools.find(t => t.id === selectedTool)?.label}`}
                   </span>
-                  <span className="block text-[11px]" style={{ color: 'var(--color-surface-500)' }}>
-                    Using all sources and pages from this book
+                  <span className="block text-[11px] text-slate-500">
+                    {selectedTool === 'sources' ? 'Enter a web address to crawl and import as a source card' : 'Using all sources and pages from this book'}
                   </span>
                 </div>
               </div>
               <button
-                className="px-5 py-2.5 rounded-lg text-[13px] font-medium transition-all"
+                className="px-5 py-2.5 rounded-lg text-[13px] font-medium transition-all cursor-pointer"
                 style={{ background: 'var(--color-accent-primary)', color: 'white' }}
                 onClick={() => handleCreate(selectedTool)}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-accent-primary-hover)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-accent-primary)')}
               >
-                Generate
+                {selectedTool === 'sources' ? 'Launch Scanner' : 'Generate'}
               </button>
             </div>
           </div>
@@ -728,12 +879,12 @@ function StudioTab({ studioOutputs, setStudioOutputs }: {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--color-surface-100)' }}>
               All Studio Outputs
             </h3>
-            <span className="text-[11px] font-mono" style={{ color: 'var(--color-surface-500)' }}>
+            <span className="text-[11px] font-mono text-slate-500">
               {studioOutputs.length} items
             </span>
           </div>
           <div className="glass-card p-4">
-            <StudioOutputsList outputs={studioOutputs} />
+            <StudioOutputsList outputs={studioOutputs} onOutputClick={onOutputClick} />
           </div>
         </div>
       </div>
@@ -750,7 +901,22 @@ type BookTab = 'overview' | 'pages' | 'teacher' | 'sources' | 'studio';
 export function BookDetailView({ book, onBack }: BookDetailViewProps) {
   const [activeTab, setActiveTab] = useState<BookTab>('overview');
   const [notes, setNotes] = useState<Note[]>([]);
+  const [sources, setSources] = useState<Source[]>(SAMPLE_SOURCES);
+  const [pages] = useState(SAMPLE_PAGES);
   const [studioOutputs, setStudioOutputs] = useState<StudioOutput[]>(INITIAL_STUDIO_OUTPUTS);
+
+  // Settings dropdown visibility toggles
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [visibleTabs, setVisibleTabs] = useState<Record<BookTab, boolean>>({
+    overview: true,
+    pages: true,
+    teacher: true,
+    sources: true,
+    studio: true,
+  });
+
+  // Modal target output
+  const [activeModalOutput, setActiveModalOutput] = useState<StudioOutput | null>(null);
 
   const tabs: { id: BookTab; label: string; icon: string }[] = [
     { id: 'overview', label: 'Overview', icon: '📋' },
@@ -760,15 +926,42 @@ export function BookDetailView({ book, onBack }: BookDetailViewProps) {
     { id: 'studio', label: 'Studio', icon: '✦' },
   ];
 
+  // Callback to handle adding gathered sources
+  const handleAddSource = (newSource: Source) => {
+    setSources((prev) => [...prev, newSource]);
+    
+    // Add completed gatherer output to list
+    const newOutput: StudioOutput = {
+      id: `so-${Date.now()}`,
+      type: 'sources',
+      title: `Scanner — Imported ${newSource.domain}`,
+      createdAt: new Date(),
+      status: 'complete'
+    };
+    setStudioOutputs((prev) => [newOutput, ...prev]);
+  };
+
+  const handleOpenSourceGatherer = () => {
+    // Open the Modal shell with a mock generating Source Gatherer object
+    const mockGathererOutput: StudioOutput = {
+      id: 'gatherer-modal',
+      type: 'sources',
+      title: 'Source Gatherer Scanner',
+      createdAt: new Date(),
+      status: 'complete'
+    };
+    setActiveModalOutput(mockGathererOutput);
+  };
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       {/* Top bar */}
       <div className="shrink-0 flex items-center gap-3 px-4 md:px-6 py-3 border-b"
         style={{ borderColor: 'var(--color-glass-border)' }}>
-        {/* Back */}
+        {/* Back button */}
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors shrink-0"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors shrink-0 cursor-pointer"
           style={{ color: 'var(--color-surface-300)' }}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-surface-800)'; e.currentTarget.style.color = 'var(--color-surface-100)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-surface-300)'; }}
@@ -794,10 +987,10 @@ export function BookDetailView({ book, onBack }: BookDetailViewProps) {
 
         {/* Tab selector */}
         <div className="flex items-center gap-0.5 rounded-lg p-1 shrink-0" style={{ background: 'var(--color-surface-850)' }}>
-          {tabs.map((tab) => (
+          {tabs.filter(tab => visibleTabs[tab.id]).map((tab) => (
             <button
               key={tab.id}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all cursor-pointer"
               style={{
                 background: activeTab === tab.id ? 'var(--color-surface-700)' : 'transparent',
                 color: activeTab === tab.id ? 'var(--color-surface-50)' : 'var(--color-surface-400)',
@@ -809,14 +1002,97 @@ export function BookDetailView({ book, onBack }: BookDetailViewProps) {
             </button>
           ))}
         </div>
+
+        <div className="w-px h-5 shrink-0" style={{ background: 'var(--color-surface-700)' }} />
+
+        {/* Settings Gear Dropdown */}
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+            className="p-1.5 rounded-md border transition-colors flex items-center justify-center cursor-pointer text-xs"
+            style={{
+              borderColor: 'var(--color-glass-border)',
+              background: isSettingsOpen ? 'var(--color-surface-800)' : 'transparent',
+              color: 'var(--color-surface-300)'
+            }}
+            aria-label="Workspace settings"
+            title="Toggle visible tabs"
+          >
+            ⚙️
+          </button>
+          {isSettingsOpen && (
+            <>
+              <div className="fixed inset-0 z-20 cursor-default" onClick={() => setIsSettingsOpen(false)} />
+              <div className="absolute right-0 mt-2 w-48 rounded-xl border p-3.5 z-30 shadow-2xl glass-card-strong animate-in fade-in slide-in-from-top-2 duration-200 animate-slide-in"
+                style={{ background: 'var(--color-glass-bg)', borderColor: 'var(--color-glass-border)' }}>
+                <h4 className="text-[10px] font-semibold uppercase tracking-wider mb-2.5 text-slate-500">
+                  Workspace Tabs
+                </h4>
+                <div className="flex flex-col gap-2">
+                  {tabs.map((tab) => (
+                    <label key={tab.id} className="flex items-center gap-2.5 text-xs cursor-pointer select-none text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={visibleTabs[tab.id]}
+                        disabled={tab.id === 'overview' /* Keep overview always visible */}
+                        onChange={() => {
+                          const nextVisible = { ...visibleTabs, [tab.id]: !visibleTabs[tab.id] };
+                          setVisibleTabs(nextVisible);
+                          // If current active tab is toggled off, fallback to first visible tab
+                          if (!nextVisible[activeTab]) {
+                            const firstVis = (Object.keys(nextVisible) as BookTab[]).find(k => nextVisible[k]);
+                            if (firstVis) setActiveTab(firstVis);
+                          }
+                        }}
+                        className="rounded border-slate-700 bg-slate-800 accent-[#6c8cff] h-3.5 w-3.5"
+                      />
+                      <span>{tab.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Tab content */}
-      {activeTab === 'overview' && <OverviewTab book={book} studioOutputs={studioOutputs} />}
-      {activeTab === 'pages' && <PagesTab notes={notes} setNotes={setNotes} />}
+      {/* Tab content panels */}
+      {activeTab === 'overview' && (
+        <OverviewTab
+          book={book}
+          studioOutputs={studioOutputs}
+          sourcesCount={sources.length}
+          chaptersCount={pages.length}
+          onOutputClick={setActiveModalOutput}
+        />
+      )}
+      {activeTab === 'pages' && (
+        <PagesTab
+          notes={notes}
+          setNotes={setNotes}
+          sources={sources}
+          pages={pages}
+        />
+      )}
       {activeTab === 'teacher' && <BookTeacherTab book={book} />}
-      {activeTab === 'sources' && <SourcesTab />}
-      {activeTab === 'studio' && <StudioTab studioOutputs={studioOutputs} setStudioOutputs={setStudioOutputs} />}
+      {activeTab === 'sources' && <SourcesTab sources={sources} />}
+      {activeTab === 'studio' && (
+        <StudioTab
+          studioOutputs={studioOutputs}
+          setStudioOutputs={setStudioOutputs}
+          onOutputClick={setActiveModalOutput}
+          onOpenSourceGatherer={handleOpenSourceGatherer}
+        />
+      )}
+
+      {/* Active Studio Output Modal Display */}
+      {activeModalOutput && (
+        <StudioModals
+          output={activeModalOutput}
+          onClose={() => setActiveModalOutput(null)}
+          onAddSource={handleAddSource}
+        />
+      )}
     </div>
   );
 }

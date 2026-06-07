@@ -7,6 +7,7 @@ interface Particle {
   vy: number;
   radius: number;
   opacity: number;
+  color: 'blue' | 'purple' | 'teal';
 }
 
 export function ParticleBackground() {
@@ -36,6 +37,8 @@ export function ParticleBackground() {
         220
       );
 
+      const colors: ('blue' | 'purple' | 'teal')[] = ['blue', 'purple', 'teal'];
+
       particles = [];
       for (let i = 0; i < numParticles; i++) {
         particles.push({
@@ -45,6 +48,7 @@ export function ParticleBackground() {
           vy: (Math.random() - 0.5) * 0.35,
           radius: Math.random() * 1.5 + 0.6,
           opacity: Math.random() * 0.5 + 0.15,
+          color: colors[Math.floor(Math.random() * colors.length)],
         });
       }
     };
@@ -94,16 +98,20 @@ export function ParticleBackground() {
         if (p.y < -10) p.y = canvas.height + 10;
         if (p.y > canvas.height + 10) p.y = -10;
 
+        let rgbString = '108, 140, 255'; // blue
+        if (p.color === 'purple') rgbString = '167, 139, 250';
+        else if (p.color === 'teal') rgbString = '45, 212, 191';
+
         // Draw particle glow
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(108, 140, 255, ${p.opacity})`;
+        ctx.fillStyle = `rgba(${rgbString}, ${p.opacity})`;
         ctx.fill();
 
         // Subtle glow halo
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius * 3.5, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(108, 140, 255, ${p.opacity * 0.06})`;
+        ctx.fillStyle = `rgba(${rgbString}, ${p.opacity * 0.06})`;
         ctx.fill();
       });
 
@@ -119,7 +127,13 @@ export function ParticleBackground() {
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(108, 140, 255, ${opacity})`;
+            
+            // Average or gradient-like connection color
+            let rgbString = '108, 140, 255';
+            if (particles[i].color === 'purple') rgbString = '167, 139, 250';
+            else if (particles[i].color === 'teal') rgbString = '45, 212, 191';
+            
+            ctx.strokeStyle = `rgba(${rgbString}, ${opacity})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
